@@ -404,9 +404,7 @@ static bool split_central_eir_found(const bt_addr_le_t *addr) {
     struct peripheral_slot *slot = &peripherals[slot_idx];
 
     LOG_DBG("Initiating new connnection");
-    struct bt_le_conn_param *param =
-        BT_LE_CONN_PARAM(CONFIG_ZMK_SPLIT_BLE_PREF_INT, CONFIG_ZMK_SPLIT_BLE_PREF_INT,
-                         CONFIG_ZMK_SPLIT_BLE_PREF_LATENCY, CONFIG_ZMK_SPLIT_BLE_PREF_TIMEOUT);
+    struct bt_le_conn_param *param = BT_LE_CONN_PARAM(0x0006, 0x0006, 30, 400);
     err = bt_conn_le_create(addr, BT_CONN_LE_CREATE_CONN, param, &slot->conn);
     if (err < 0) {
         LOG_ERR("Create conn failed (err %d) (create conn? 0x%04x)", err, BT_HCI_OP_LE_CREATE_CONN);
@@ -470,32 +468,30 @@ static void split_central_device_found(const bt_addr_le_t *addr, int8_t rssi, ui
     }
 }
 
-static int start_scan(void) {
-    int err;
-    // Check to see if there are stil available open slots
-    bool filter = false;
-    bt_le_filter_accept_list_clear();
-
-    bt_addr_le_t *peripheral_addr = zmk_ble_get_peripheral_addr();
-    char addr[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_to_str(peripheral_addr, addr, sizeof(addr));
-    LOG_DBG("Peripheral BLE Address: %s", addr);
-
-    if (bt_addr_le_cmp(peripheral_addr, BT_ADDR_LE_ANY)) {
-        err = bt_le_filter_accept_list_add(peripheral_addr);
-        if (err)
-            LOG_DBG("error encountered adding address to whitelist %d", err);
-        filter = true;
+static int start_scanning(void) {
+    // No action is necessary if central is already scanning.
+    if (is_scanning) {
+        LOG_DBG("Scanning already running");
+        return 0;
     }
 
-    LOG_DBG("Filtering status: %d", filter);
-    if (filter) {
-        err = bt_le_scan_start(BT_LE_SCAN_PASSIVE_FILTER, split_central_device_found);
-    } else {
-        err = bt_le_scan_start(BT_LE_SCAN_PASSIVE, split_central_device_found);
+    // If all the devices are connected, there is no need to scan.
+    bool has_unconnected = false;
+    for (int i = 0; i < CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS; i++) {
+        if (peripherals[i].conn == NULL) {
+            has_unconnected = true;
+            break;
+        }
+    }
+    if (!has_unconnected) {
+        LOG_DBG("All devices are connected, scanning is unnecessary");
+        return 0;
     }
 
-    if (err) {
+    // Start scanning otherwise.
+    is_scanning = true;
+    int err = bt_le_scan_start(BT_LE_SCAN_PASSIVE, split_central_device_found);
+    if (err < 0) {
         LOG_ERR("Scanning failed to start (err %d)", err);
         return err;
     }
@@ -782,7 +778,7 @@ int zmk_split_bt_central_init(const struct device *_arg) {
 
     bt_conn_cb_register(&conn_callbacks);
 
-    return IS_ENABLED(CONFIG_ZMK_BLE_CLEAR_BONDS_ON_START) ? 0 : start_scanning();
+    return start_scanning();
 }
 
 SYS_INIT(zmk_split_bt_central_init, APPLICATION, CONFIG_ZMK_BLE_INIT_PRIORITY);
