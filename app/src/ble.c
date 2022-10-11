@@ -321,6 +321,10 @@ int zmk_ble_put_peripheral_addr(const bt_addr_le_t *addr) {
     return -ENOMEM;
 }
 
+// This can be expanded to take peripheral index as an input when multiple peripherals are an option
+
+bt_addr_le_t *zmk_ble_get_peripheral_addr() { return &peripheral_addr; }
+
 #endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
 #if IS_ENABLED(CONFIG_SETTINGS)
@@ -625,6 +629,10 @@ static int zmk_ble_init(const struct device *_arg) {
         sprintf(setting_name, "ble/profiles/%d", i);
 
         err = settings_delete(setting_name);
+        if (err) {
+            LOG_ERR("Failed to delete setting: %d", err);
+        }
+        err = settings_delete("ble/peripheral_address");
         if (err) {
             LOG_ERR("Failed to delete setting: %d", err);
         }
