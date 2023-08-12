@@ -224,6 +224,15 @@ int zmk_ble_clear_bonds() {
 
 int zmk_ble_active_profile_index() { return active_profile; }
 
+int zmk_ble_profile_index(const bt_addr_le_t *addr) {
+    for (int i = 0; i < ZMK_BLE_PROFILE_COUNT; i++) {
+        if (bt_addr_le_cmp(addr, &profiles[i].peer) == 0) {
+            return i;
+        }
+    }
+    return -ENODEV;
+}
+
 #if IS_ENABLED(CONFIG_SETTINGS)
 static void ble_save_profile_work(struct k_work *work) {
     settings_save_one("ble/active_profile", &active_profile, sizeof(active_profile));
@@ -311,6 +320,10 @@ int zmk_ble_put_peripheral_addr(const bt_addr_le_t *addr) {
     // available slot.
     return -ENOMEM;
 }
+
+// This can be expanded to take peripheral index as an input when multiple peripherals are an option
+
+bt_addr_le_t *zmk_ble_get_peripheral_addr() { return &peripheral_addr; }
 
 #endif /* IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL) */
 
@@ -616,6 +629,10 @@ static int zmk_ble_init(const struct device *_arg) {
         sprintf(setting_name, "ble/profiles/%d", i);
 
         err = settings_delete(setting_name);
+        if (err) {
+            LOG_ERR("Failed to delete setting: %d", err);
+        }
+        err = settings_delete("ble/peripheral_address");
         if (err) {
             LOG_ERR("Failed to delete setting: %d", err);
         }
