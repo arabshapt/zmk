@@ -9,6 +9,11 @@
 #include <zmk/ble.h>
 #include <zmk/endpoints_types.h>
 
+/**
+ * Recommended length of string buffer for printing endpoint identifiers.
+ */
+#define ZMK_ENDPOINT_STR_LEN 10
+
 #ifdef CONFIG_ZMK_USB
 #define ZMK_ENDPOINT_USB_COUNT 1
 #else
@@ -30,12 +35,17 @@
  */
 #define ZMK_ENDPOINT_COUNT (ZMK_ENDPOINT_USB_COUNT + ZMK_ENDPOINT_BLE_COUNT)
 
-bool zmk_endpoint_instance_equals(struct zmk_endpoint_instance a, struct zmk_endpoint_instance b);
+bool zmk_endpoint_instance_eq(struct zmk_endpoint_instance a, struct zmk_endpoint_instance b);
 
 /**
  * Writes a string identifying an endpoint instance.
+ *
+ * @param str Address of output string buffer
+ * @param len Length of string buffer. See ZMK_ENDPOINT_STR_LEN for recommended length.
+ *
+ * @returns Number of characters written.
  */
-int zmk_endpoint_instance_print(char *str, size_t len, struct zmk_endpoint_instance endpoint);
+int zmk_endpoint_instance_to_str(struct zmk_endpoint_instance endpoint, char *str, size_t len);
 
 /**
  * Gets a unique index for an endpoint instance. This can be used together with
@@ -59,3 +69,7 @@ int zmk_endpoints_toggle_transport(void);
 struct zmk_endpoint_instance zmk_endpoints_selected(void);
 
 int zmk_endpoints_send_report(uint16_t usage_page);
+
+#if IS_ENABLED(CONFIG_ZMK_MOUSE)
+int zmk_endpoints_send_mouse_report();
+#endif // IS_ENABLE(CONFIG_ZMK_MOUSE)

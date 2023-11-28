@@ -7,6 +7,8 @@
 #include <zephyr/init.h>
 #include <zephyr/settings/settings.h>
 
+#include <stdio.h>
+
 #include <zmk/ble.h>
 #include <zmk/endpoints.h>
 #include <zmk/hid.h>
@@ -46,7 +48,7 @@ static int endpoints_save_preferred(void) {
 #endif
 }
 
-bool zmk_endpoint_instance_equals(struct zmk_endpoint_instance a, struct zmk_endpoint_instance b) {
+bool zmk_endpoint_instance_eq(struct zmk_endpoint_instance a, struct zmk_endpoint_instance b) {
     if (a.transport != b.transport) {
         return false;
     }
@@ -56,20 +58,20 @@ bool zmk_endpoint_instance_equals(struct zmk_endpoint_instance a, struct zmk_end
         return true;
 
     case ZMK_TRANSPORT_BLE:
-        return a.ble_profile_index == b.ble_profile_index;
+        return a.ble.profile_index == b.ble.profile_index;
     }
 
     LOG_ERR("Invalid transport %d", a.transport);
     return false;
 }
 
-int zmk_endpoint_instance_print(char *str, size_t len, struct zmk_endpoint_instance endpoint) {
+int zmk_endpoint_instance_to_str(struct zmk_endpoint_instance endpoint, char *str, size_t len) {
     switch (endpoint.transport) {
     case ZMK_TRANSPORT_USB:
         return snprintf(str, len, "USB");
 
     case ZMK_TRANSPORT_BLE:
-        return snprintf(str, len, "BLE:%d", endpoint.ble_profile_index);
+        return snprintf(str, len, "BLE:%d", endpoint.ble.profile_index);
 
     default:
         return snprintf(str, len, "Invalid");
@@ -85,7 +87,7 @@ int zmk_endpoint_instance_to_index(struct zmk_endpoint_instance endpoint) {
         return INSTANCE_INDEX_OFFSET_USB;
 
     case ZMK_TRANSPORT_BLE:
-        return INSTANCE_INDEX_OFFSET_BLE + endpoint.ble_profile_index;
+        return INSTANCE_INDEX_OFFSET_BLE + endpoint.ble.profile_index;
     }
 
     LOG_ERR("Invalid transport %d", endpoint.transport);
@@ -119,12 +121,10 @@ struct zmk_endpoint_instance zmk_endpoints_selected(void) {
 }
 
 static int send_keyboard_report(void) {
-    struct zmk_hid_keyboard_report *keyboard_report = zmk_hid_get_keyboard_report();
-
     switch (current_instance.transport) {
 #if IS_ENABLED(CONFIG_ZMK_USB)
     case ZMK_TRANSPORT_USB: {
-        int err = zmk_usb_hid_send_report((uint8_t *)keyboard_report, sizeof(*keyboard_report));
+        int err = zmk_usb_hid_send_keyboard_report();
         if (err) {
             LOG_ERR("FAILED TO SEND OVER USB: %d", err);
         }
@@ -134,6 +134,7 @@ static int send_keyboard_report(void) {
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
     case ZMK_TRANSPORT_BLE: {
+        struct zmk_hid_keyboard_report *keyboard_report = zmk_hid_get_keyboard_report();
         int err = zmk_hog_send_keyboard_report(&keyboard_report->body);
         if (err) {
             LOG_ERR("FAILED TO SEND OVER HOG: %d", err);
@@ -148,12 +149,10 @@ static int send_keyboard_report(void) {
 }
 
 static int send_consumer_report(void) {
-    struct zmk_hid_consumer_report *consumer_report = zmk_hid_get_consumer_report();
-
     switch (current_instance.transport) {
 #if IS_ENABLED(CONFIG_ZMK_USB)
     case ZMK_TRANSPORT_USB: {
-        int err = zmk_usb_hid_send_report((uint8_t *)consumer_report, sizeof(*consumer_report));
+        int err = zmk_usb_hid_send_consumer_report();
         if (err) {
             LOG_ERR("FAILED TO SEND OVER USB: %d", err);
         }
@@ -163,6 +162,7 @@ static int send_consumer_report(void) {
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
     case ZMK_TRANSPORT_BLE: {
+        struct zmk_hid_consumer_report *consumer_report = zmk_hid_get_consumer_report();
         int err = zmk_hog_send_consumer_report(&consumer_report->body);
         if (err) {
             LOG_ERR("FAILED TO SEND OVER HOG: %d", err);
@@ -190,6 +190,36 @@ int zmk_endpoints_send_report(uint16_t usage_page) {
     LOG_ERR("Unsupported usage page %d", usage_page);
     return -ENOTSUP;
 }
+
+#if IS_ENABLED(CONFIG_ZMK_MOUSE)
+int zmk_endpoints_send_mouse_report() {
+    switch (current_instance.transport) {
+#if IS_ENABLED(CONFIG_ZMK_USB)
+    case ZMK_TRANSPORT_USB: {
+        int err = zmk_usb_hid_send_mouse_report();
+        if (err) {
+            LOG_ERR("FAILED TO SEND OVER USB: %d", err);
+        }
+        return err;
+    }
+#endif /* IS_ENABLED(CONFIG_ZMK_USB) */
+
+#if IS_ENABLED(CONFIG_ZMK_BLE)
+    case ZMK_TRANSPORT_BLE: {
+        struct zmk_hid_mouse_report *mouse_report = zmk_hid_get_mouse_report();
+        int err = zmk_hog_send_mouse_report(&mouse_report->body);
+        if (err) {
+            LOG_ERR("FAILED TO SEND OVER HOG: %d", err);
+        }
+        return err;
+    }
+#endif /* IS_ENABLED(CONFIG_ZMK_BLE) */
+    }
+
+    LOG_ERR("Unsupported endpoint transport %d", current_instance.transport);
+    return -ENOTSUP;
+}
+#endif // IS_ENABLED(CONFIG_ZMK_MOUSE)
 
 #if IS_ENABLED(CONFIG_SETTINGS)
 
@@ -260,7 +290,7 @@ static struct zmk_endpoint_instance get_selected_instance(void) {
     switch (instance.transport) {
 #if IS_ENABLED(CONFIG_ZMK_BLE)
     case ZMK_TRANSPORT_BLE:
-        instance.ble_profile_index = zmk_ble_active_profile_index();
+        instance.ble.profile_index = zmk_ble_active_profile_index();
         break;
 #endif // IS_ENABLED(CONFIG_ZMK_BLE)
 
@@ -295,6 +325,9 @@ static int zmk_endpoints_init(const struct device *_arg) {
 static void disconnect_current_endpoint() {
     zmk_hid_keyboard_clear();
     zmk_hid_consumer_clear();
+#if IS_ENABLED(CONFIG_ZMK_MOUSE)
+    zmk_hid_mouse_clear();
+#endif // IS_ENABLED(CONFIG_ZMK_MOUSE)
 
     zmk_endpoints_send_report(HID_USAGE_KEY);
     zmk_endpoints_send_report(HID_USAGE_CONSUMER);
@@ -303,14 +336,14 @@ static void disconnect_current_endpoint() {
 static void update_current_endpoint(void) {
     struct zmk_endpoint_instance new_instance = get_selected_instance();
 
-    if (!zmk_endpoint_instance_equals(new_instance, current_instance)) {
+    if (!zmk_endpoint_instance_eq(new_instance, current_instance)) {
         // Cancel all current keypresses so keys don't stay held on the old endpoint.
         disconnect_current_endpoint();
 
         current_instance = new_instance;
 
-        char endpoint_str[10];
-        zmk_endpoint_instance_print(endpoint_str, sizeof(endpoint_str), current_instance);
+        char endpoint_str[ZMK_ENDPOINT_STR_LEN];
+        zmk_endpoint_instance_to_str(current_instance, endpoint_str, sizeof(endpoint_str));
         LOG_INF("Endpoint changed: %s", endpoint_str);
 
         ZMK_EVENT_RAISE(

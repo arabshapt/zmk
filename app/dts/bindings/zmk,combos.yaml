@@ -21,6 +21,9 @@ child-binding:
     global-quick-tap-ms:
       type: int
       default: -1
+    require-prior-idle-ms:
+      type: int
+      default: -1
     slow-release:
       type: boolean
     layers:

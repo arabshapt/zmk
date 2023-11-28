@@ -16,25 +16,31 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-static zmk_hid_indicators hid_indicators[ZMK_ENDPOINT_COUNT];
+static zmk_hid_indicators_t hid_indicators[ZMK_ENDPOINT_COUNT];
 
-zmk_hid_indicators zmk_hid_indicators_get_current_profile(void) {
+zmk_hid_indicators_t zmk_hid_indicators_get_current_profile(void) {
     return zmk_hid_indicators_get_profile(zmk_endpoints_selected());
 }
 
-zmk_hid_indicators zmk_hid_indicators_get_profile(struct zmk_endpoint_instance endpoint) {
-    int profile = zmk_endpoint_instance_to_index(endpoint);
+zmk_hid_indicators_t zmk_hid_indicators_get_profile(struct zmk_endpoint_instance endpoint) {
+    const int profile = zmk_endpoint_instance_to_index(endpoint);
     return hid_indicators[profile];
 }
 
 static void raise_led_changed_event(struct k_work *_work) {
-    ZMK_EVENT_RAISE(new_zmk_hid_indicators_changed((struct zmk_hid_indicators_changed){
-        .indicators = zmk_hid_indicators_get_current_profile()}));
+    const zmk_hid_indicators_t indicators = zmk_hid_indicators_get_current_profile();
+
+    ZMK_EVENT_RAISE(new_zmk_hid_indicators_changed(
+        (struct zmk_hid_indicators_changed){.indicators = indicators}));
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS) && IS_ENABLED(CONFIG_ZMK_SPLIT_BLE)
+    zmk_split_bt_update_hid_indicator(indicators);
+#endif
 }
 
 static K_WORK_DEFINE(led_changed_work, raise_led_changed_event);
 
-void zmk_hid_indicators_set_profile(zmk_hid_indicators indicators,
+void zmk_hid_indicators_set_profile(zmk_hid_indicators_t indicators,
                                     struct zmk_endpoint_instance endpoint) {
     int profile = zmk_endpoint_instance_to_index(endpoint);
 
@@ -48,7 +54,7 @@ void zmk_hid_indicators_set_profile(zmk_hid_indicators indicators,
 
 void zmk_hid_indicators_process_report(struct zmk_hid_led_report_body *report,
                                        struct zmk_endpoint_instance endpoint) {
-    uint8_t indicators = report->leds;
+    const zmk_hid_indicators_t indicators = (zmk_hid_indicators_t)report->leds;
     zmk_hid_indicators_set_profile(indicators, endpoint);
 
     LOG_DBG("Update HID indicators: endpoint=%d, indicators=%x", endpoint.transport, indicators);

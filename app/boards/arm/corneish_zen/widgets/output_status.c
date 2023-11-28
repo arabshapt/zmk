@@ -14,7 +14,6 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/display.h>
 #include "output_status.h"
 #include <zmk/event_manager.h>
-#include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/events/endpoint_changed.h>
 #include <zmk/usb.h>
@@ -42,7 +41,6 @@ struct output_status_state {
     struct zmk_endpoint_instance selected_endpoint;
     bool active_profile_connected;
     bool active_profile_bonded;
-    uint8_t active_profile_index;
 };
 
 static struct output_status_state get_state(const zmk_event_t *_eh) {
@@ -51,7 +49,6 @@ static struct output_status_state get_state(const zmk_event_t *_eh) {
         .active_profile_connected = zmk_ble_active_profile_is_connected(),
         .active_profile_bonded = !zmk_ble_active_profile_is_open(),
     };
-    ;
 }
 
 static void set_status_symbol(lv_obj_t *icon, struct output_status_state state) {
@@ -63,7 +60,7 @@ static void set_status_symbol(lv_obj_t *icon, struct output_status_state state) 
         if (state.active_profile_bonded) {
             if (state.active_profile_connected) {
                 // sprintf(text, LV_SYMBOL_BLUETOOTH "%i " LV_SYMBOL_OK, active_profile_index);
-                switch (state.selected_endpoint.ble_profile_index) {
+                switch (state.selected_endpoint.ble.profile_index) {
                 case 0:
                     lv_img_set_src(icon, &bluetooth_connected_1);
                     break;
@@ -84,7 +81,7 @@ static void set_status_symbol(lv_obj_t *icon, struct output_status_state state) 
                 lv_img_set_src(icon, &bluetooth_disconnected_right);
             }
         } else {
-            switch (state.selected_endpoint.ble_profile_index) {
+            switch (state.selected_endpoint.ble.profile_index) {
             case 0:
                 lv_img_set_src(icon, &bluetooth_advertising_1);
                 break;
@@ -114,6 +111,11 @@ static void output_status_update_cb(struct output_status_state state) {
 ZMK_DISPLAY_WIDGET_LISTENER(widget_output_status, struct output_status_state,
                             output_status_update_cb, get_state)
 ZMK_SUBSCRIPTION(widget_output_status, zmk_endpoint_changed);
+// We don't get an endpoint changed event when the active profile connects/disconnects
+// but there wasn't another endpoint to switch from/to, so update on BLE events too.
+#if defined(CONFIG_ZMK_BLE)
+ZMK_SUBSCRIPTION(widget_output_status, zmk_ble_active_profile_changed);
+#endif
 
 int zmk_widget_output_status_init(struct zmk_widget_output_status *widget, lv_obj_t *parent) {
     widget->obj = lv_img_create(parent);
