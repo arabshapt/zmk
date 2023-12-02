@@ -31,6 +31,10 @@ static struct zmk_hid_mouse_report mouse_report = {.report_id = ZMK_HID_REPORT_I
                                                    .body = {.buttons = 0}};
 
 #endif // IS_ENABLED(CONFIG_ZMK_MOUSE)
+    .report_id = HID_REPORT_ID_KEYBOARD, .body = {.modifiers = 0, ._reserved = 0, .keys = {0}}};
+
+static struct zmk_hid_consumer_report consumer_report = {.report_id = HID_REPORT_ID_CONSUMER,
+                                                         .body = {.keys = {0}}};
 
 // Keep track of how often a modifier was pressed.
 // Only release the modifier if the count is 0.

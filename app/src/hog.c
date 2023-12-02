@@ -21,6 +21,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 #include <zmk/hid_indicators.h>
 #endif // IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
+#include <zmk/hid_indicators.h>
 
 enum {
     HIDS_REMOTE_WAKE = BIT(0),
@@ -66,6 +67,17 @@ static struct hids_report led_indicators = {
 
 static struct hids_report consumer_input = {
     .id = ZMK_HID_REPORT_ID_CONSUMER,
+    .id = HID_REPORT_ID_KEYBOARD,
+    .type = HIDS_INPUT,
+};
+
+static struct hids_report led_indicators = {
+    .id = HID_REPORT_ID_LEDS,
+    .type = HIDS_OUTPUT,
+};
+
+static struct hids_report consumer_input = {
+    .id = HID_REPORT_ID_CONSUMER,
     .type = HIDS_INPUT,
 };
 
@@ -194,6 +206,13 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
                        NULL, &input),
 
+    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE | BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+                           BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT, NULL,
+                           write_hids_leds_report, NULL),
+    BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
+                       NULL, &led_indicators),
+
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
                            BT_GATT_PERM_READ_ENCRYPT, read_hids_consumer_input_report, NULL, NULL),
     BT_GATT_CCC(input_ccc_changed, BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT),
@@ -303,6 +322,7 @@ void send_consumer_report_callback(struct k_work *work) {
 
         struct bt_gatt_notify_params notify_params = {
             .attr = &hog_svc.attrs[9],
+            .attr = &hog_svc.attrs[12],
             .data = &report,
             .len = sizeof(report),
         };

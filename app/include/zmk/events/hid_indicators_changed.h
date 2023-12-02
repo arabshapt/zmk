@@ -11,6 +11,7 @@
 
 struct zmk_hid_indicators_changed {
     zmk_hid_indicators_t indicators;
+    zmk_hid_indicators indicators;
 };
 
 ZMK_EVENT_DECLARE(zmk_hid_indicators_changed);

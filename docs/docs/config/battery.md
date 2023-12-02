@@ -25,6 +25,9 @@ While `CONFIG_ZMK_BATTERY_REPORTING` is disabled by default it is implied by `CO
 :::note BLE reporting on MacOS
 
 On macOS the BLE battery reporting packets can cause the computer to wakeup from sleep. To prevent this, the battery _reporting_ service can be disabled by setting `CONFIG_BT_BAS=n`. This setting is independent of battery _monitoring_, for instance the battery level can still be indicated on a display.
+:::note
+
+On MacOS the BLE battery reporting packets can cause the computer to wakeup from sleep, the battery service can be disabled indepently of battery monitoring (allowing the battery level to be displayed on a screen or through a custom lighting implementation) by setting `CONFIG_BT_BAS=n`
 
 :::
 

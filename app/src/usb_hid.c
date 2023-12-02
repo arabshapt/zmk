@@ -16,6 +16,7 @@
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 #include <zmk/hid_indicators.h>
 #endif // IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
+#include <zmk/hid_indicators.h>
 #include <zmk/event_manager.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -97,6 +98,7 @@ static int set_report_cb(const struct device *dev, struct usb_setup_packet *setu
     switch (setup->wValue & HID_GET_REPORT_ID_MASK) {
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
     case ZMK_HID_REPORT_ID_LEDS:
+    case HID_REPORT_ID_LEDS:
         if (*len != sizeof(struct zmk_hid_led_report)) {
             LOG_ERR("LED set report is malformed: length=%d", *len);
             return -EINVAL;
