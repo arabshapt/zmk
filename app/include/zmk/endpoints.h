@@ -68,8 +68,10 @@ int zmk_endpoints_toggle_transport(void);
  */
 struct zmk_endpoint_instance zmk_endpoints_selected(void);
 
+bool zmk_endpoints_preferred_transport_is_active();
+
 int zmk_endpoints_send_report(uint16_t usage_page);
 
 #if IS_ENABLED(CONFIG_ZMK_MOUSE)
 int zmk_endpoints_send_mouse_report();
-#endif // IS_ENABLE(CONFIG_ZMK_MOUSE)
+#endif // IS_ENABLED(CONFIG_ZMK_MOUSE)
