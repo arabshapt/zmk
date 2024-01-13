@@ -433,7 +433,7 @@ config ZMK_COMBO_MAX_PRESSED_COMBOS
 
 config ZMK_COMBO_MAX_COMBOS_PER_KEY
     int "Maximum number of combos per key"
-    default 5
+    default 10 # arabshapt
 
 config ZMK_COMBO_MAX_KEYS_PER_COMBO
     int "Maximum number of keys per combo"
@@ -446,11 +446,11 @@ menu "Leader Options"
 
 config ZMK_LEADER_MAX_KEYS_PER_SEQUENCE
     int "Maximum number of key presses in a leader sequence"
-    default 4
+    default 3 # arabshapt
 
 config ZMK_LEADER_MAX_SEQUENCES_PER_KEY
     int "Maximum number of leader sequences that a key can belong to"
-    default 5
+    default 100 # arabshapt
 
 #Leader options
 endmenu
